@@ -55,14 +55,21 @@ export function decodeInvoice(input: string, now: Date = new Date()): DecodedInv
     const name = TAG_NAMES[field.tag] ?? 'unknown'
     let display = bytesToHex(wordsToBytes(field.words, true) ?? new Uint8Array())
 
+    // BOLT11 readers use the FIRST occurrence of a repeated field, and the
+    // duplicate Warning below says so. Every scalar assignment is therefore
+    // guarded: a later occurrence is decoded and listed in `fields`, but must
+    // not overwrite what the tool reports. Route Hints are the exception —
+    // they accumulate, because each `r` field is a separate alternative.
+    const isDuplicate = seen.has(field.tag)
+
     switch (field.tag) {
       case 'p': case 's': case 'h': case 'n': case 'm': {
         const r = decodeHexField(field)
         diagnostics.push(...r.diagnostics)
         display = r.value ?? display
-        if (field.tag === 'p') inv.paymentHash = r.value
-        if (field.tag === 's') inv.paymentSecret = r.value
-        if (field.tag === 'h') inv.descriptionHash = r.value
+        if (!isDuplicate && field.tag === 'p') inv.paymentHash = r.value
+        if (!isDuplicate && field.tag === 's') inv.paymentSecret = r.value
+        if (!isDuplicate && field.tag === 'h') inv.descriptionHash = r.value
         if (field.tag === 'n' && r.value && inv.payeeNodeId && r.value !== inv.payeeNodeId) {
           diagnostics.push(specWarn(
             'The n field disagrees with the key recovered from the signature.',
@@ -74,23 +81,33 @@ export function decodeInvoice(input: string, now: Date = new Date()): DecodedInv
       case 'd': {
         const r = decodeDescription(field)
         diagnostics.push(...r.diagnostics)
-        inv.description = r.value
+        if (!isDuplicate) inv.description = r.value
         display = r.value ?? display
         break
       }
-      case 'x': inv.expirySeconds = decodeIntField(field); display = `${inv.expirySeconds} seconds`; break
-      case 'c': inv.minFinalCltvExpiryDelta = decodeIntField(field); display = `${inv.minFinalCltvExpiryDelta} blocks`; break
+      case 'x': {
+        const seconds = decodeIntField(field)
+        if (!isDuplicate) inv.expirySeconds = seconds
+        display = `${seconds} seconds`
+        break
+      }
+      case 'c': {
+        const blocks = decodeIntField(field)
+        if (!isDuplicate) inv.minFinalCltvExpiryDelta = blocks
+        display = `${blocks} blocks`
+        break
+      }
       case '9': {
         const r = decodeFeatures(field)
         diagnostics.push(...r.diagnostics)
-        inv.features = r.value
+        if (!isDuplicate) inv.features = r.value
         display = r.value.map(f => f.name ?? `bit ${f.bit}`).join(', ')
         break
       }
       case 'f': {
         const r = decodeFallback(field, inv.hrp.network)
         diagnostics.push(...r.diagnostics)
-        inv.fallbackAddress = r.value
+        if (!isDuplicate) inv.fallbackAddress = r.value
         display = r.value ?? display
         break
       }
@@ -105,7 +122,7 @@ export function decodeInvoice(input: string, now: Date = new Date()): DecodedInv
       }
     }
 
-    if (field.tag !== 'r' && field.tag !== 'f' && seen.has(field.tag)) {
+    if (field.tag !== 'r' && field.tag !== 'f' && isDuplicate) {
       diagnostics.push(specWarn(
         `Two '${field.tag}' fields; readers take the first.`,
         'BOLT11 tagged fields', { field: field.tag },

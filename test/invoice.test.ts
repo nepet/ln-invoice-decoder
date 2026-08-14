@@ -54,6 +54,30 @@ describe('decodeInvoice', () => {
     expect(d.source).toEqual({ kind: 'practice', implementations: ['LND', 'CLN'] })
   })
 
+  it('resolves a duplicate field to the first occurrence, not the last', () => {
+    // Splice a second `x` (expiry) field in right after the existing one,
+    // carrying a different value, so first-wins is actually exercised.
+    // A tagged field is [type, lenHi, lenLo, ...dataWords]; `x`'s type value
+    // is 6 (its index in the bech32 charset 'qpzry9x8gf2tvdw0s3jn54khce6mua7l').
+    // Two data words hold up to 1023, encoded big-endian base-32, so
+    // 120 seconds = 3*32 + 24 -> words [3, 24]. With lenHi=0, lenLo=2 the
+    // header reads dataLength=2, matching those two words: [6, 0, 2, 3, 24].
+    const { value: b } = decodeBech32Tolerant(SPEC_COFFEE)
+    const x = splitDataPart(b!.words, b!.dataStart).value.fields.find(f => f.tag === 'x')!
+    const at = x.span.start - b!.dataStart
+    const secondExpiry = [6, 0, 2, 3, 24]
+    const doubled = mangleWords(SPEC_COFFEE, w => {
+      w.splice(at + 3 + x.dataLength, 0, ...secondExpiry)
+      return w
+    })
+    const inv = decodeInvoice(doubled, AT_CREATION)
+    expect(inv.expirySeconds).toBe(60) // the first field's value, not the spliced-in 120
+    expect(inv.diagnostics.some(d => d.severity === 'warning' && /Two 'x' fields/.test(d.message))).toBe(true)
+    const xFields = inv.fields.filter(f => f.tag === 'x')
+    expect(xFields.length).toBe(2)
+    expect(xFields[0]!.display).not.toBe(xFields[1]!.display)
+  })
+
   it('never throws, whatever it is given', () => {
     for (const junk of ['', 'x', 'lnbc', 'lnbc1', 'ln', '1', 'lnbc1'.repeat(50), '💥']) {
       expect(() => decodeInvoice(junk, AT_CREATION)).not.toThrow()
