@@ -7,7 +7,7 @@ describe('scaffold', () => {
     expect(config).toContain("base: '/ln-invoice-decoder/'")
   })
 
-  it('declares only the four runtime dependencies', () => {
+  it('declares only the three runtime dependencies', () => {
     const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
     expect(Object.keys(pkg.dependencies).sort()).toEqual([
       '@noble/curves',

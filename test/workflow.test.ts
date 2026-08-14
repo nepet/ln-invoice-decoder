@@ -13,4 +13,8 @@ describe('deploy workflow', () => {
     expect(yml()).toMatch(/path:\s*dist/)
     expect(yml()).toMatch(/pages:\s*write/)
   })
+
+  it('never cancels a deploy that is already in progress', () => {
+    expect(yml()).toMatch(/cancel-in-progress:\s*false/)
+  })
 })

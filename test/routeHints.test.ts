@@ -91,9 +91,9 @@ describe('validateHint', () => {
     expect(ds.filter(d => d.severity === 'warning')).toEqual([])
   })
 
-  it('flags a repeated node id within one hint', () => {
+  it('flags a repeated public key within one hint, naming both hops', () => {
     const ds = validateHint([hop(), hop()], 0, payee, 1000n)
-    expect(ds.some(d => /appears twice/.test(d.message))).toBe(true)
+    expect(ds.some(d => /Hop 2 repeats the public key .* of hop 1\./.test(d.message) && d.hopIndex === 1)).toBe(true)
   })
 
   it('flags a zero cltv delta as a practice warning', () => {

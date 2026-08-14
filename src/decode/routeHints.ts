@@ -85,7 +85,7 @@ export function validateHint(
     const first = hops.findIndex(x => x.nodeId === h.nodeId)
     if (first !== hopIndex) {
       out.push(specWarn(
-        `Node ${h.nodeId.slice(0, 10)}… appears twice in this hint.`,
+        `Hop ${hopIndex + 1} repeats the public key ${h.nodeId.slice(0, 10)}… of hop ${first + 1}.`,
         'BOLT11 r field', { ...anchor, hopIndex },
       ))
     }

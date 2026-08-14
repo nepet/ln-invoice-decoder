@@ -12,7 +12,9 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # Never cancel a deploy that is already uploading: GitHub's own Pages
+  # guidance, since a cancelled deployment can leave the site half-published.
+  cancel-in-progress: false
 
 jobs:
   build:
