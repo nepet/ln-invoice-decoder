@@ -24,4 +24,10 @@ describe('fragment', () => {
     writeFragment('')
     expect(location.hash).toBe('')
   })
+
+  it('survives a malformed percent escape rather than throwing', () => {
+    expect(() => readFragment('#%zz')).not.toThrow()
+    expect(readFragment('#%zz')).toBe('%zz')
+    expect(readFragment('#%')).toBe('%')
+  })
 })

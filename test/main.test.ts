@@ -40,6 +40,15 @@ describe('mount', () => {
     expect(root.querySelector('[data-section="route-hints"]')).not.toBeNull()
   })
 
+  it('survives a malformed percent escape in the fragment on load', () => {
+    // Assigned raw, unencoded — a hand-edited or shared URL can carry this
+    // literally, and encoding it first would hide the bug this covers.
+    history.replaceState(null, '', '/#%zz')
+    const root = document.createElement('div')
+    expect(() => mount(root)).not.toThrow()
+    expect(root.querySelector('textarea')).not.toBeNull()
+  })
+
   it('never references the network in ui source', () => {
     for (const file of readdirSync('src/ui')) {
       const source = readFileSync(`src/ui/${file}`, 'utf8')
