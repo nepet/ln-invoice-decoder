@@ -1,0 +1,27 @@
+{
+  "name": "ln-invoice-decoder",
+  "version": "1.0.0",
+  "description": "A browser tool that decodes BOLT11 Lightning invoices.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Peter Neuroth",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/inject-csp.mjs && node scripts/verify-artifact.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
+    "jsqr": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "jsdom": "^30.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1",
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^4.1.10"
+  }
+}
