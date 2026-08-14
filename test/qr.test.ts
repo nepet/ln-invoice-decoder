@@ -26,4 +26,15 @@ describe('startCamera', () => {
     await Promise.resolve()
     expect(stop).toHaveBeenCalled()
   })
+
+  it('does not throw or leave an unhandled rejection when getUserMedia is denied', async () => {
+    Object.assign(navigator, {
+      mediaDevices: { getUserMedia: vi.fn().mockRejectedValue(new DOMException('denied', 'NotAllowedError')) },
+    })
+    const video = document.createElement('video')
+    const halt = startCamera(video, () => {})
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(() => halt()).not.toThrow()
+  })
 })

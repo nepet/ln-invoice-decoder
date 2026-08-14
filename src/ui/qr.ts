@@ -26,7 +26,10 @@ export function startCamera(video: HTMLVideoElement, onResult: (invoice: string)
     if (stopped) { s.getTracks().forEach(t => t.stop()); return }
     stream = s
     video.srcObject = s
-    void video.play()
+    // play() rejects under real autoplay policies, and jsdom returns
+    // undefined rather than a promise — Promise.resolve handles both
+    // without throwing.
+    void Promise.resolve(video.play()).catch(() => {})
     const tick = () => {
       if (stopped) return
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
