@@ -16,7 +16,7 @@ describe('decodeFallback', () => {
     const f = splitDataPart(value!.words, value!.dataStart).value.fields.find(x => x.tag === 'f')!
     // SPEC_FALLBACK is the testnet vector, so this is a testnet P2PKH address.
     // Compare against the address the spec states for that vector, verbatim.
-    expect(decodeFallback(f, 'testnet').value).toMatch(/^[mn2][a-km-zA-HJ-NP-Z1-9]{25,34}$/)
+    expect(decodeFallback(f, 'testnet').value).toBe('mk2QpYatsKicvFVuTAQLBryyccRXMUaGHP')
   })
 
   it('renders a segwit v0 program as a bech32 address', () => {
@@ -39,5 +39,12 @@ describe('decodeFallback', () => {
     const { value, diagnostics } = decodeFallback(raw([31, 0, 0]), 'mainnet')
     expect(value).toBeNull()
     expect(diagnostics[0]!.severity).toBe('warning')
+  })
+
+  it('keeps earlier diagnostics when a later branch returns early', () => {
+    const { value, diagnostics } = decodeFallback(raw([]), null)
+    expect(value).toBeNull()
+    expect(diagnostics.some(d => /unknown/.test(d.message))).toBe(true)
+    expect(diagnostics.some(d => /empty/.test(d.message))).toBe(true)
   })
 })

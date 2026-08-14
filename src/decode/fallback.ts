@@ -39,12 +39,14 @@ export function decodeFallback(field: RawField, network: Network | null): Decode
 
   const version = field.words[0]
   if (version === undefined) {
-    return { value: null, diagnostics: [specWarn('Fallback address field is empty.', 'BOLT11 f field', { field: 'f' })] }
+    diagnostics.push(specWarn('Fallback address field is empty.', 'BOLT11 f field', { field: 'f' }))
+    return { value: null, diagnostics }
   }
 
   const program = wordsToBytes(field.words.slice(1), false)
   if (!program) {
-    return { value: null, diagnostics: [specWarn('Fallback address has non-zero padding bits.', 'BOLT11 f field', { field: 'f' })] }
+    diagnostics.push(specWarn('Fallback address has non-zero padding bits.', 'BOLT11 f field', { field: 'f' }))
+    return { value: null, diagnostics }
   }
 
   if (version === 17 || version === 18) {
