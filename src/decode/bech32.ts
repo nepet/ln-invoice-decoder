@@ -32,6 +32,7 @@ function hrpExpand(hrp: string): number[] {
 
 export function decodeBech32Tolerant(raw: string): Decoded<Bech32Result | null> {
   const diagnostics: Diagnostic[] = []
+  const leadingOffset = raw.length - raw.trimStart().length
   const input = raw.trim()
 
   if (input !== input.toLowerCase() && input !== input.toUpperCase()) {
@@ -52,7 +53,7 @@ export function decodeBech32Tolerant(raw: string): Decoded<Bech32Result | null> 
     if (v === -1) {
       return {
         value: null,
-        diagnostics: [err(`Character '${s[i]}' at position ${i} is not valid bech32.`, 'BOLT11 bech32')],
+        diagnostics: [err(`Character '${s[i]}' at position ${i + leadingOffset} is not valid bech32.`, 'BOLT11 bech32')],
       }
     }
     values.push(v)
@@ -67,7 +68,7 @@ export function decodeBech32Tolerant(raw: string): Decoded<Bech32Result | null> 
   }
 
   return {
-    value: { hrp, words: Uint8Array.from(values.slice(0, -6)), checksumValid, dataStart },
+    value: { hrp, words: Uint8Array.from(values.slice(0, -6)), checksumValid, dataStart: dataStart + leadingOffset },
     diagnostics,
   }
 }

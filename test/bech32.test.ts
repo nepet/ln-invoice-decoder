@@ -44,4 +44,23 @@ describe('decodeBech32Tolerant', () => {
     const { value } = decodeBech32Tolerant(SPEC_COFFEE.toUpperCase())
     expect(value!.hrp).toBe('lnbc2500u')
   })
+
+  it('reports dataStart as an index into the original, untrimmed input', () => {
+    const padded = '  \n' + SPEC_COFFEE
+    const { value } = decodeBech32Tolerant(padded)
+    expect(padded[value!.dataStart]).toBe(SPEC_COFFEE[SPEC_COFFEE.indexOf('1', 4) + 1])
+  })
+
+  it('trailing whitespace still decodes cleanly and does not shift dataStart', () => {
+    const { value } = decodeBech32Tolerant(SPEC_COFFEE + '  \n')
+    expect(value).not.toBeNull()
+    expect(value!.dataStart).toBe(SPEC_COFFEE.indexOf('1', 4) + 1)
+  })
+
+  it('reports the invalid-character position in the original, untrimmed input', () => {
+    const padded = '  ' + 'lnbc1bbbbbb'
+    const { diagnostics } = decodeBech32Tolerant(padded)
+    expect(diagnostics[0]!.message).toMatch(/position 7\b/)
+    expect(padded[7]).toBe('b')
+  })
 })
