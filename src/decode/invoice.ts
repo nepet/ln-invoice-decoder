@@ -1,5 +1,5 @@
 import { specWarn } from '../domain/diagnostics'
-import { infoDiagnostics, practiceDiagnostics } from '../practice/rules'
+import { absenceDiagnostics, infoDiagnostics, practiceDiagnostics } from '../practice/rules'
 import type { DecodedField, DecodedInvoice, Diagnostic, RouteHint } from '../domain/types'
 import { decodeBech32Tolerant } from './bech32'
 import { splitDataPart, TAG_NAMES } from './fields'
@@ -134,18 +134,26 @@ export function decodeInvoice(input: string, now: Date = new Date()): DecodedInv
 
   inv.routeHints = hints
 
-  if (!inv.description && !inv.descriptionHash) {
+  // The same reasoning as the bech32 early return above, applied to a field
+  // walk that stopped early: when nothing parsed, or an Error says where
+  // decoding gave up, every rule about a field the Invoice "should" have had
+  // is really a rule about the part nobody could read. Saying an Invoice cut
+  // in half has no payment secret buries the one Diagnostic that matters.
+  const complete = inv.fields.length > 0 && !diagnostics.some(d => d.severity === 'error')
+
+  if (complete && inv.description === null && inv.descriptionHash === null) {
     diagnostics.push(specWarn('Invoice has neither a description nor a description hash.', 'BOLT11 tagged fields'))
   }
   if (inv.description !== null && inv.descriptionHash !== null) {
     diagnostics.push(specWarn('Invoice has both a description and a description hash.', 'BOLT11 tagged fields'))
   }
 
-  return finish(inv, now)
+  return finish(inv, now, complete)
 }
 
-function finish(inv: DecodedInvoice, now: Date): DecodedInvoice {
-  inv.diagnostics.push(...practiceDiagnostics(inv), ...infoDiagnostics(inv, now))
+function finish(inv: DecodedInvoice, now: Date, complete: boolean): DecodedInvoice {
+  if (complete) inv.diagnostics.push(...practiceDiagnostics(inv), ...absenceDiagnostics(inv))
+  inv.diagnostics.push(...infoDiagnostics(inv, now))
   return sorted(inv)
 }
 
