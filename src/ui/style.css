@@ -48,6 +48,40 @@ body {
   font-family: var(--font-mono);
 }
 
+/* A 66-character public key must wrap rather than push the page sideways on a
+   phone. min-width:0 lets it wrap at all, as a flex item inside .row. */
+.value {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
+}
+
+/* Every value is copy-on-click, which is invisible unless it is said. Pointer
+   plus hover outline announces it; [data-copied] confirms it happened. */
+[data-copy] {
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+[data-copy]:hover {
+  outline: 1px dashed var(--border);
+  outline-offset: 2px;
+}
+
+[data-copy][data-copied] {
+  outline: 1px solid var(--info);
+  outline-offset: 2px;
+}
+
+[data-copy][data-copied]::after {
+  content: " copied";
+  color: var(--muted);
+  font-family: var(--font-prose);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .decoded-invoice section {
   border-bottom: 1px solid var(--border);
   padding: 0.75rem 0;
@@ -123,6 +157,12 @@ body {
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.85rem;
+}
+
+/* An anchor naming a Hop is a link to that Hop. */
+.diagnostics a.anchor {
+  cursor: pointer;
+  text-decoration: underline dotted;
 }
 
 .hint, .field {

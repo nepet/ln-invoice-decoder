@@ -32,4 +32,33 @@ describe('wireCopyButtons', () => {
     root.querySelector('button')!.click()
     expect(writeText).toHaveBeenCalledWith('03abc')
   })
+
+  it('leaves the clipboard alone when the click ended a selection inside the value', () => {
+    // Click-dragging across part of a public key fires click on mouseup;
+    // copying the whole value then would overwrite what was highlighted.
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    const root = document.createElement('div')
+    document.body.append(root)
+    root.innerHTML = '<span data-copy="03abcdef">03abcdef</span>'
+    wireCopyButtons(root)
+    const span = root.querySelector('span')!
+
+    const range = document.createRange()
+    range.setStart(span.firstChild!, 0)
+    range.setEnd(span.firstChild!, 4)
+    const selection = window.getSelection()!
+    selection.removeAllRanges()
+    selection.addRange(range)
+
+    span.click()
+    expect(writeText).not.toHaveBeenCalled()
+
+    // A plain click — the browser has collapsed the selection by mousedown —
+    // still copies.
+    selection.removeAllRanges()
+    span.click()
+    expect(writeText).toHaveBeenCalledWith('03abcdef')
+    root.remove()
+  })
 })
