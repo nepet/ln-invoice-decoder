@@ -4,7 +4,8 @@ A browser tool that decodes a BOLT11 Lightning invoice and shows a developer
 everything it encodes — with particular attention to Route Hints, and to
 invoices that are subtly wrong.
 
-**Live: <https://nepet.github.io/ln-invoice-decoder/>**
+**Live (once deployed):** <https://nepet.github.io/ln-invoice-decoder/> — not
+yet published; see [Deploying](#deploying).
 
 ## What this is
 
@@ -35,13 +36,16 @@ This is not a promise you have to take on trust — it is checkable:
   built from a hash of the page's own inline script and style — so if the page
   tried to make a network request, or if anyone injected script the browser
   didn't already hash, the browser refuses it, not just the tool's own code.
-  `scripts/verify-artifact.mjs` checks this CSP is present, checks nothing in
-  the build references an external `src`, `href`, or CSS `url()`, and runs in
-  CI on every build — a build that would ship a network-capable artifact fails
-  before it deploys.
-- **Try it yourself.** Save the page (`File → Save Page As…`, or `curl` the
-  live URL), turn off your network connection, and open the saved file. Paste
-  an invoice. It still works — because it was never talking to anything.
+  `scripts/verify-artifact.mjs` checks this CSP is present and checks nothing
+  in the build references an external `src`, `href`, or CSS `url()`. It is
+  wired into `npm run build` and into
+  [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) as the last
+  step before a deploy, so a build that produced a network-capable artifact
+  would fail before it ever reached the site.
+- **Try it yourself.** Save the page (`File → Save Page As…` once it's
+  live, or run `npm run build` locally and open `dist/index.html` directly),
+  turn off your network connection, and open the saved file. Paste an
+  invoice. It still works — because it was never talking to anything.
 
 If you share a link, the invoice travels in the URL fragment
 (`#lnbc1...`), not the query string or path — see
@@ -111,8 +115,26 @@ npm run build      # vite build → dist/index.html, CSP injected and verified
 
 `npm run build` produces exactly one file, `dist/index.html`
 (~190 KB), and then runs `scripts/verify-artifact.mjs` against it — the same
-check `.github/workflows/deploy.yml` runs in CI before anything is deployed,
-so a red test or a network-capable build never reaches the live site.
+check [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) is
+configured to run in CI, after `typecheck` and `test`, before every deploy,
+so a red test or a network-capable build is designed to never reach the live
+site.
+
+## Deploying
+
+This repository is not yet published. `.github/workflows/deploy.yml` is
+committed and ready — it runs `typecheck`, `test`, and `build` before
+deploying — but it has not run yet, because the repository has no GitHub
+remote. To publish it, the owner runs:
+
+```bash
+gh repo create nepet/ln-invoice-decoder --public --source=. --remote=origin --push
+gh api -X POST repos/nepet/ln-invoice-decoder/pages -f build_type=workflow
+```
+
+That creates the repository, pushes this history, and switches Pages to
+build from the Actions workflow rather than a branch. The first push triggers
+the workflow; once it succeeds, the site above is live.
 
 ## Further reading
 
