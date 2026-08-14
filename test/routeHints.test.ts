@@ -7,12 +7,18 @@ import { SPEC_ROUTE_HINT } from './fixtures/invoices'
 
 const hop = (over: Partial<Hop> = {}): Hop => ({
   nodeId: '03'.padEnd(66, 'a'),
-  scid: { block: 1, tx: 2, output: 3, raw: '1099511693315' },
+  // (1<<40)|(2<<16)|3 = 1099511758851
+  scid: { block: 1, tx: 2, output: 3, raw: '1099511758851' },
   feeBaseMsat: 0,
   feeProportionalMillionths: 0,
   cltvExpiryDelta: 40,
   ...over,
 })
+
+// BOLT11 spec's route-hint example (SPEC_ROUTE_HINT), first hop's short_channel_id,
+// stated in the spec prose as 66051x263430x1800 (block x tx x output).
+// Packed by hand: (66051<<40)|(263430<<16)|1800 = 72623859790382856.
+const EXPECTED_FIRST_SCID = { raw: '72623859790382856', block: 66051, tx: 263430, output: 1800 }
 
 describe('decodeRouteHint', () => {
   it('decodes both hops of the spec vector', () => {
@@ -26,11 +32,16 @@ describe('decodeRouteHint', () => {
   })
 
   it('splits the short channel id into block, tx and output', () => {
-    // scid 0x0000010000020003 = block 1, tx 2, output 3
-    const hops = [hop()]
-    expect(hops[0]!.scid.block).toBe(1)
-    expect(hops[0]!.scid.tx).toBe(2)
-    expect(hops[0]!.scid.output).toBe(3)
+    const { value } = decodeBech32Tolerant(SPEC_ROUTE_HINT)
+    const field = splitDataPart(value!.words, value!.dataStart).value.fields.find(f => f.tag === 'r')!
+    const [first] = decodeRouteHint(field, 0).value
+    expect(first!.scid.raw).toBe(EXPECTED_FIRST_SCID.raw)
+    expect(first!.scid.block).toBe(EXPECTED_FIRST_SCID.block)
+    expect(first!.scid.tx).toBe(EXPECTED_FIRST_SCID.tx)
+    expect(first!.scid.output).toBe(EXPECTED_FIRST_SCID.output)
+    expect(BigInt(first!.scid.raw)).toBe(
+      (BigInt(first!.scid.block) << 40n) | (BigInt(first!.scid.tx) << 16n) | BigInt(first!.scid.output),
+    )
   })
 
   it('warns when the data is not a whole number of hops', () => {
