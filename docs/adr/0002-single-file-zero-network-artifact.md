@@ -15,3 +15,9 @@ instead of a sentence in a README they have to trust.
   set response headers.
 - No analytics, error reporting, fonts, or node-graph lookups can be added
   without breaking the premise — node alias lookup was rejected on these grounds.
+- The artifact ships unminified, and the build disables Vite's modulepreload
+  polyfill. "Readable in View Source" and "contains no `fetch(`" are claims the
+  file has to earn literally, and the polyfill was the bundle's only network
+  primitive — dead code in a single-file build. About 170 KB is what that
+  costs, and bytes are the cheaper thing to spend for a tool whose pitch is
+  auditability.

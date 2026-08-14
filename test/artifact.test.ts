@@ -51,6 +51,17 @@ describe('built artifact', () => {
   it('references nothing external', () => {
     expect(html).not.toMatch(/(src|href)="https?:/)
   })
+
+  it('contains no network primitive at all, not even an unreachable one', () => {
+    expect(html).not.toMatch(/\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource|importScripts/)
+  })
+
+  it('ships readable source rather than mangled identifiers', () => {
+    // The README tells readers View Source shows them everything that runs.
+    // Function names surviving the build is what makes that true.
+    expect(html).toMatch(/function decodeInvoice\b/)
+    expect(html).toMatch(/function recoverPayee\b/)
+  })
 })
 
 // The tests above only ever run the verifier against a known-good build, so
@@ -89,6 +100,16 @@ describe('verify-artifact.mjs', () => {
 
   it('fails on an external url() inside inlined CSS', () => {
     const dir = fixture(source => source.replace('</head>', `<style>.x{background:url(https://evil.test/a.png)}</style></head>`))
+    expect(() => verify(dir)).toThrow()
+  })
+
+  it('fails on a CSS @import', () => {
+    const dir = fixture(source => source.replace('</head>', `<style>@import "evil.css";</style></head>`))
+    expect(() => verify(dir)).toThrow()
+  })
+
+  it('fails when a network primitive appears in the script', () => {
+    const dir = fixture(source => source.replace('</body>', `<script>fetch("/x")</script></body>`))
     expect(() => verify(dir)).toThrow()
   })
 })
