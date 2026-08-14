@@ -3,6 +3,7 @@ import { decodeInvoice } from '../decode/invoice'
 import { EXAMPLE_INVOICE } from '../examples'
 import { readFragment, writeFragment } from './fragment'
 import { renderInvoice } from './render'
+import { wireCopyButtons } from './copy'
 import './style.css'
 
 export function mount(root: HTMLElement): void {
@@ -64,6 +65,8 @@ export function mount(root: HTMLElement): void {
   const initial = readFragment(location.hash)
   input.value = initial
   show(initial, { updateFragment: false })
+
+  wireCopyButtons(root)
 }
 
 function emptyState(): HTMLElement {

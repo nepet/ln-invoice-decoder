@@ -2,6 +2,7 @@ import type {
   DecodedInvoice, Diagnostic, HintCost, Hop, Severity, ShortChannelId,
 } from '../domain/types'
 import { bytesToHex } from '../decode/words'
+import { toJson } from './copy'
 
 export function formatAmount(msat: bigint | null): string {
   if (msat === null) return 'any amount'
@@ -71,6 +72,9 @@ function renderVerdict(inv: DecodedInvoice, now: Date): HTMLElement {
   if (inv.description) s.append(row('Description', value('span', inv.description)))
 
   s.append(row('Diagnostics', value('span', severityCountsText(inv.diagnostics))))
+
+  const copyButton = el('button', { 'data-copy': toJson(inv) }, 'Copy as JSON')
+  s.append(copyButton)
 
   return s
 }
