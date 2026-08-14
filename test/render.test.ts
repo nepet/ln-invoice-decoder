@@ -64,6 +64,36 @@ describe('renderInvoice', () => {
     expect(el.querySelector('img')).toBeNull()
   })
 
+  it('names the hint and hop a diagnostic points at, and links to that hop', () => {
+    const inv = decodeInvoice(SPEC_ROUTE_HINT, AT_CREATION)
+    inv.diagnostics.push({
+      severity: 'warning', message: 'CLTV delta of 0',
+      source: { kind: 'practice', implementations: ['LND'] },
+      field: 'r', hintIndex: 0, hopIndex: 1,
+    })
+    const el = renderInvoice(inv, AT_CREATION)
+    const anchor = [...el.querySelectorAll('a.anchor')].at(-1)!
+    expect(anchor.textContent).toBe('[r · hint 1 · hop 2]')
+    expect(anchor.getAttribute('href')).toBe('#hint-0-hop-1')
+    expect(el.querySelector('#hint-0-hop-1')).not.toBeNull()
+
+    // Following the link for real would overwrite the invoice in the fragment.
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+    anchor.dispatchEvent(click)
+    expect(click.defaultPrevented).toBe(true)
+  })
+
+  it('leaves an anchor with no hint as plain text', () => {
+    const inv = decodeInvoice(SPEC_ROUTE_HINT, AT_CREATION)
+    inv.diagnostics.push({
+      severity: 'warning', message: 'field only',
+      source: { kind: 'spec', rule: 'BOLT11 example' }, field: 's',
+    })
+    const el = renderInvoice(inv, AT_CREATION)
+    const anchor = [...el.querySelectorAll('.anchor')].find(a => a.textContent === '[s]')!
+    expect(anchor.tagName).toBe('SPAN')
+  })
+
   it('marks practice diagnostics distinctly from spec ones', () => {
     // SPEC_ROUTE_HINT carries both a payment secret and the matching feature
     // bit, so decodeInvoice produces no spec- or practice-sourced diagnostic

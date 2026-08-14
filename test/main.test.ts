@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { mount } from '../src/ui/main'
 import { SPEC_COFFEE } from './fixtures/invoices'
@@ -47,6 +47,46 @@ describe('mount', () => {
     const root = document.createElement('div')
     expect(() => mount(root)).not.toThrow()
     expect(root.querySelector('textarea')).not.toBeNull()
+  })
+
+  it('keeps an open raw expander open, and the same node, across a countdown tick', () => {
+    vi.useFakeTimers()
+    const root = document.createElement('div')
+    document.body.append(root)
+    try {
+      mount(root)
+      type(root, SPEC_COFFEE)
+      const details = root.querySelector('details')!
+      details.open = true
+      const expiry = root.querySelector('[data-expiry]')!
+      const before = expiry.textContent
+
+      vi.advanceTimersByTime(61_000)
+
+      expect(root.querySelector('details')).toBe(details)
+      expect(details.open).toBe(true)
+      // The countdown still runs — it just rewrites one text node in place.
+      expect(root.querySelector('[data-expiry]')).toBe(expiry)
+      expect(expiry.textContent).not.toBe(before)
+    } finally {
+      root.remove()
+      vi.useRealTimers()
+    }
+  })
+
+  it('runs one countdown however many times it is mounted', () => {
+    vi.useFakeTimers()
+    const root = document.createElement('div')
+    document.body.append(root)
+    try {
+      mount(root)
+      mount(root)
+      mount(root)
+      expect(vi.getTimerCount()).toBe(1)
+    } finally {
+      root.remove()
+      vi.useRealTimers()
+    }
   })
 
   it('never references the network in ui source', () => {

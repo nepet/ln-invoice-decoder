@@ -1,11 +1,20 @@
 import { classify, normaliseInput } from '../classify'
 import { decodeInvoice } from '../decode/invoice'
+import type { DecodedInvoice } from '../domain/types'
 import { EXAMPLE_INVOICE } from '../examples'
 import { readFragment, writeFragment } from './fragment'
-import { renderInvoice } from './render'
+import { expiryText, renderInvoice } from './render'
 import { wireCopyButtons } from './copy'
 import { scanFile, startCamera } from './qr'
 import './style.css'
+
+// One countdown for the page, held at module scope so a second mount() cannot
+// leave the first one's timer running.
+let countdown: ReturnType<typeof setInterval> | null = null
+const stopCountdown = () => {
+  if (countdown !== null) clearInterval(countdown)
+  countdown = null
+}
 
 export function mount(root: HTMLElement): void {
   root.replaceChildren()
@@ -30,29 +39,29 @@ export function mount(root: HTMLElement): void {
   const output = document.createElement('div')
   root.append(input, example, scanButton, video, output)
 
-  // Tracks the currently-decoded invoice so the countdown interval below can
-  // re-render the expiry without touching the textarea or the fragment.
-  let currentInvoice = ''
+  // The invoice currently on screen, kept decoded so the countdown below can
+  // recompute the expiry without decoding or rendering anything again.
+  let shown: DecodedInvoice | null = null
 
   const show = (raw: string, { updateFragment = true } = {}) => {
     const invoice = normaliseInput(raw)
     if (updateFragment) writeFragment(invoice)
     const kind = classify(invoice)
     if (kind.kind === 'empty') {
-      currentInvoice = ''
+      shown = null
       output.replaceChildren(emptyState())
       return
     }
     if (kind.kind !== 'bolt11' && kind.message) {
-      currentInvoice = ''
+      shown = null
       const p = document.createElement('p')
       p.dataset.notInvoice = ''
       p.textContent = kind.message
       output.replaceChildren(p)
       return
     }
-    currentInvoice = invoice
-    output.replaceChildren(renderInvoice(decodeInvoice(invoice), new Date()))
+    shown = decodeInvoice(invoice)
+    output.replaceChildren(renderInvoice(shown, new Date()))
   }
 
   input.addEventListener('input', () => show(input.value))
@@ -95,17 +104,22 @@ export function mount(root: HTMLElement): void {
       .catch(() => {})
   })
 
-  // Re-render once a second so the expiry countdown stays live. Only fires
-  // while there is a decoded invoice to show, never touches the input, and
-  // never rewrites the fragment (updateFragment: false) — otherwise a tick
-  // would compete with the user's own edits. Stops itself once `root` is no
-  // longer attached to the document, so it never outlives the page.
-  const interval = setInterval(() => {
+  // Keep the expiry countdown live by rewriting exactly one text node. It must
+  // not re-render: that would swap every <details> expander for a fresh closed
+  // one and wipe the reader's selection, once a second. Stops itself once
+  // `root` is no longer attached to the document, so it never outlives the page.
+  stopCountdown()
+  countdown = setInterval(() => {
     if (!root.isConnected) {
-      clearInterval(interval)
+      stopCountdown()
       return
     }
-    if (currentInvoice) show(currentInvoice, { updateFragment: false })
+    const node = output.querySelector<HTMLElement>('[data-expiry]')
+    if (!shown || !node) return
+    const text = expiryText(shown, new Date())
+    if (node.textContent === text) return
+    node.textContent = text
+    node.dataset.copy = text
   }, 1000)
 
   const initial = readFragment(location.hash)

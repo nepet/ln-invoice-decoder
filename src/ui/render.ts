@@ -30,7 +30,7 @@ const el = (tag: string, attrs: Record<string, string> = {}, text?: string): HTM
 /** A monospaced leaf value. Its own text is the copy payload unless `copy` overrides it
  *  — used for Short Channel IDs, where the raw decimal, not the display string, gets copied. */
 const value = (tag: string, text: string, copy: string = text): HTMLElement => {
-  const node = el(tag, { class: 'value', 'data-copy': copy })
+  const node = el(tag, { class: 'value', 'data-copy': copy, title: 'Click to copy' })
   node.textContent = text
   return node
 }
@@ -60,14 +60,25 @@ export function renderInvoice(inv: DecodedInvoice, now: Date): HTMLElement {
 function renderVerdict(inv: DecodedInvoice, now: Date): HTMLElement {
   const s = section('verdict')
 
+  // Deliberately not "Signature valid": recovery succeeds for essentially any
+  // well-formed 64-byte signature, and yields *a* Payee, not proof of *the*
+  // Payee. See the Info Diagnostic emitted for an Invoice with no `n` field.
   const sig = el('div', { class: 'signature', 'data-ok': String(inv.signatureValid) })
-  sig.textContent = inv.signatureValid ? 'Signature valid' : 'Signature invalid'
+  sig.textContent = inv.signatureValid
+    ? 'Signature well-formed; payee recovered'
+    : 'Signature malformed; no payee recovered'
   s.append(sig)
 
   s.append(row('Payee', value('span', inv.payeeNodeId ?? 'unknown')))
   s.append(row('Network', value('span', inv.hrp.network ?? 'unknown')))
   s.append(row('Amount', value('span', formatAmount(inv.hrp.amountMsat))))
-  s.append(row('Expiry', value('span', expiryText(inv, now))))
+
+  // Stable hook for the countdown: main.ts retargets this one node every
+  // second instead of re-rendering, which would close every [raw] expander
+  // and drop any selection the reader had made.
+  const expiry = value('span', expiryText(inv, now))
+  expiry.setAttribute('data-expiry', '')
+  s.append(row('Expiry', expiry))
 
   if (inv.description) s.append(row('Description', value('span', inv.description)))
 
@@ -79,7 +90,7 @@ function renderVerdict(inv: DecodedInvoice, now: Date): HTMLElement {
   return s
 }
 
-function expiryText(inv: DecodedInvoice, now: Date): string {
+export function expiryText(inv: DecodedInvoice, now: Date): string {
   if (inv.timestamp === null) return 'unknown'
   const nowSeconds = Math.floor(now.getTime() / 1000)
   const remaining = inv.timestamp + inv.expirySeconds - nowSeconds
@@ -111,11 +122,43 @@ function renderDiagnostics(diagnostics: Diagnostic[]): HTMLElement {
     } else if (d.source.kind === 'practice') {
       li.append(el('span', { class: 'citation' }, `(${d.source.implementations.join(', ')})`))
     }
-    if (d.field) li.append(el('span', { class: 'anchor' }, `[${d.field}]`))
+    const anchor = renderAnchor(d)
+    if (anchor) li.append(anchor)
     list.append(li)
   }
   s.append(list)
   return s
+}
+
+const hintId = (hintIndex: number) => `hint-${hintIndex}`
+const hopId = (hintIndex: number, hopIndex: number) => `hint-${hintIndex}-hop-${hopIndex}`
+
+/**
+ * Where a Diagnostic points: `[r · hint 2 · hop 1]`, not a bare `[r]`. Three
+ * hints whose first hops all have a zero CLTV delta otherwise produce three
+ * identical lines. When the anchor names a Hop or a Route Hint, the anchor is
+ * a link to it.
+ */
+function renderAnchor(d: Diagnostic): HTMLElement | null {
+  const parts: string[] = []
+  if (d.field) parts.push(d.field)
+  if (d.hintIndex !== undefined) parts.push(`hint ${d.hintIndex + 1}`)
+  if (d.hopIndex !== undefined) parts.push(`hop ${d.hopIndex + 1}`)
+  if (parts.length === 0) return null
+
+  const text = `[${parts.join(' · ')}]`
+  if (d.hintIndex === undefined) return el('span', { class: 'anchor' }, text)
+
+  const target = d.hopIndex === undefined ? hintId(d.hintIndex) : hopId(d.hintIndex, d.hopIndex)
+  const link = el('a', { class: 'anchor', href: `#${target}` }, text)
+  link.addEventListener('click', event => {
+    // The Invoice itself lives in the URL fragment, so letting the browser
+    // follow this link would overwrite it with '#hint-1-hop-0' and blank the
+    // page. Scroll to the element instead and leave the fragment alone.
+    event.preventDefault()
+    document.getElementById(target)?.scrollIntoView?.({ block: 'nearest' })
+  })
+  return link
 }
 
 function renderRouteHints(inv: DecodedInvoice): HTMLElement {
@@ -127,19 +170,19 @@ function renderRouteHints(inv: DecodedInvoice): HTMLElement {
   }
 
   inv.routeHints.forEach((hint, hintIndex) => {
-    const div = el('div', { 'data-hint': String(hintIndex), class: 'hint' })
+    const div = el('div', { 'data-hint': String(hintIndex), id: hintId(hintIndex), class: 'hint' })
     div.append(el('h3', {}, `Route Hint ${hintIndex + 1}`))
-    hint.hops.forEach((hop, hopIndex) => div.append(renderHop(hop, hopIndex)))
+    hint.hops.forEach((hop, hopIndex) => div.append(renderHop(hop, hintIndex, hopIndex)))
     if (hint.cost !== null) div.append(renderHintCost(hint.cost, inv.hrp.amountMsat))
     s.append(div)
   })
   return s
 }
 
-function renderHop(hop: Hop, hopIndex: number): HTMLElement {
-  const div = el('div', { 'data-hop': String(hopIndex), class: 'hop' })
+function renderHop(hop: Hop, hintIndex: number, hopIndex: number): HTMLElement {
+  const div = el('div', { 'data-hop': String(hopIndex), id: hopId(hintIndex, hopIndex), class: 'hop' })
   div.append(el('h4', {}, `Hop ${hopIndex + 1}`))
-  div.append(row('Node', value('code', hop.nodeId)))
+  div.append(row('Public Key', value('code', hop.nodeId)))
   div.append(row('Short Channel ID', value('code', formatScid(hop.scid), hop.scid.raw)))
   div.append(row('Base Fee', value('span', `${hop.feeBaseMsat} msat`)))
   div.append(row('Proportional Fee', value('span', `${hop.feeProportionalMillionths} ppm`)))
@@ -169,9 +212,9 @@ function renderFields(inv: DecodedInvoice): HTMLElement {
 
   for (const field of inv.fields) {
     const div = el('div', { 'data-field': field.tag, class: 'field' })
-    div.append(row('Tag', value('code', field.tag)))
+    div.append(row('Type', value('code', field.tag)))
     div.append(row('Name', value('span', field.name)))
-    div.append(row('Value', value('span', field.display)))
+    div.append(row('Decoded', value('span', field.display)))
 
     const details = el('details')
     details.append(el('summary', {}, 'raw'))
