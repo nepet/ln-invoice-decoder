@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bytesToHex, wordsToBigInt, wordsToBytes, wordsToNumber } from '../src/decode/words'
+import { bytesToHex, wordsToBytes, wordsToNumber } from '../src/decode/words'
 
 describe('word helpers', () => {
   it('converts 5-bit words to bytes, dropping zero padding', () => {
@@ -23,6 +23,6 @@ describe('word helpers', () => {
 
   it('reads big-endian numbers', () => {
     expect(wordsToNumber(Uint8Array.from([1, 0]))).toBe(32)
-    expect(wordsToBigInt(Uint8Array.from([1, 0, 0]))).toBe(1024n)
+    expect(wordsToNumber(Uint8Array.from([1, 0, 0]))).toBe(1024)
   })
 })

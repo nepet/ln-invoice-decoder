@@ -25,12 +25,6 @@ export function wordsToNumber(words: Uint8Array): number {
   return n
 }
 
-export function wordsToBigInt(words: Uint8Array): bigint {
-  let n = 0n
-  for (const w of words) n = n * 32n + BigInt(w)
-  return n
-}
-
 export function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
 }

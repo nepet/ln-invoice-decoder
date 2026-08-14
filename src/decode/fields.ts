@@ -23,17 +23,13 @@ export interface DataPart {
   timestamp: number | null
   fields: RawField[]
   signatureWords: Uint8Array
-  signatureSpan: { start: number; end: number }
 }
 
 const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'
 
 export function splitDataPart(words: Uint8Array, dataStart: number): Decoded<DataPart> {
   const diagnostics: Diagnostic[] = []
-  const empty: DataPart = {
-    timestamp: null, fields: [], signatureWords: new Uint8Array(),
-    signatureSpan: { start: dataStart, end: dataStart },
-  }
+  const empty: DataPart = { timestamp: null, fields: [], signatureWords: new Uint8Array() }
 
   if (words.length < TIMESTAMP_WORDS + SIGNATURE_WORDS) {
     return { value: empty, diagnostics: [err('Invoice is truncated: too short to hold a timestamp and a signature.', 'BOLT11 data part')] }
@@ -42,7 +38,6 @@ export function splitDataPart(words: Uint8Array, dataStart: number): Decoded<Dat
   const timestamp = wordsToNumber(words.slice(0, TIMESTAMP_WORDS))
   const sigStart = words.length - SIGNATURE_WORDS
   const signatureWords = words.slice(sigStart)
-  const signatureSpan = { start: dataStart + sigStart, end: dataStart + words.length }
 
   const fields: RawField[] = []
   let i = TIMESTAMP_WORDS
@@ -69,5 +64,5 @@ export function splitDataPart(words: Uint8Array, dataStart: number): Decoded<Dat
     i += 3 + dataLength
   }
 
-  return { value: { timestamp, fields, signatureWords, signatureSpan }, diagnostics }
+  return { value: { timestamp, fields, signatureWords }, diagnostics }
 }
